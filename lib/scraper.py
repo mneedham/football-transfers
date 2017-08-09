@@ -10,12 +10,17 @@ def find_all_pages(page):
 
     page = BeautifulSoup(r.content, "html.parser")
 
-    highest_page_link = page.select("li.letzte-seite a")[0]["href"]
-    highest_page_link_parts = highest_page_link.split("/")
-    highest_page = int(highest_page_link_parts[-1])
+    highest_page_link_element = page.select("li.letzte-seite a")
 
-    for page in range(1, highest_page + 1):
-        yield page
+    if len(highest_page_link_element) > 0:
+        highest_page_link = highest_page_link_element[0]["href"]
+        highest_page_link_parts = highest_page_link.split("/")
+        highest_page = int(highest_page_link_parts[-1])
+
+        for page in range(1, highest_page + 1):
+            yield page
+    else:
+        yield 0
 
 
 def scrape_transfers(page):

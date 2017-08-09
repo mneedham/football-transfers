@@ -32,7 +32,6 @@ def scrape_transfers(event, context):
         for file_path in glob.glob("data/days/*.html"):
             print(file_path)
             for row in scraper.scrape_transfers(file_path):
-                print(list(row))
                 writer.writerow(list(row))
 
 
@@ -63,8 +62,8 @@ def find_all_pages(event, context):
 
         print("event: {event}".format(event=event))
 
-        start_date = date(2017, 8, 5)
-        end_date = date(2017, 8, 9)
+        start_date = date(2017, 3, 16)
+        end_date = date(2017, 7, 1)
         for single_date in daterange(start_date, end_date):
             print(single_date.strftime("%Y-%m-%d"))
 

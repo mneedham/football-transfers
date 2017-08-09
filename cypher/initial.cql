@@ -1,25 +1,25 @@
 // load players
-LOAD CSV WITH HEADERS FROM "file:///transfers.csv" AS row
+LOAD CSV WITH HEADERS FROM 'file:///transfers.csv' AS row
 MERGE (player:Player {id: row.playerUri})
 ON CREATE SET player.name =  row.playerName,
               player.position = row.playerPosition;
 
 // load clubs
-LOAD CSV WITH HEADERS FROM "file:///transfers.csv" AS row
-WITH row where row.buyerClubUri <> ""
+LOAD CSV WITH HEADERS FROM 'file:///transfers.csv' AS row
+WITH row where row.buyerClubUri <> ''
 MERGE (club:Club {id: row.buyerClubUri})
 ON CREATE SET club.name = row.buyerClubName,
               club.country = row.buyerClubCountry;
 
-LOAD CSV WITH HEADERS FROM "file:///transfers.csv" AS row
-WITH row where row.sellerClubUri <> ""
+LOAD CSV WITH HEADERS FROM 'file:///transfers.csv' AS row
+WITH row where row.sellerClubUri <> ''
 MERGE (club:Club {id: row.sellerClubUri})
 ON CREATE SET club.name = row.sellerClubName,
               club.country = row.sellerClubCountry;
 
 // load transfers
 USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS FROM "file:///transfers.csv" AS row
+LOAD CSV WITH HEADERS FROM 'file:///transfers.csv' AS row
 MATCH (player:Player {id: row.playerUri})
 MATCH (source:Club {id: row.sellerClubUri})
 MATCH (destination:Club {id: row.buyerClubUri})
@@ -37,13 +37,14 @@ WHERE not(t.fee  contains "?") and not(t.fee  contains "-")
 WITH t, replace(replace(replace(replace(t.fee, "k", ""), "m", ""), "Loan fee:", ""), "£", "") AS rawNumeric
 WITH t,
 CASE
- WHEN t.fee ENDS WITH "k" THEN toFloat(apoc.number.exact.mul(rawNumeric,"1000"))
+ WHEN t.fee ENDS WITH "k" THEN toFloat(apoc.number.exact.mul(trim(rawNumeric),"1000"))
  WHEN trim(t.fee) IN ["Free transfer", "ablösefrei ", "gratuito", "free", "free transfer",
                       "Ablösefrei", "transfervrij", "ablöserei", "Free Transfer", "Libre",
                       "gratutito", "ablsöefrei", "ablösefrei", "ablösefei", "abösefrei", "Loan",
-                      "draft", "Swap deal", "trade"] THEN 0
+                      "draft", "Swap deal", "trade", "ablösefrei", "ablösefreei", "Free"] THEN 0
  WHEN NOT(exists(t.fee)) THEN 0
- ELSE toFloat(apoc.number.exact.mul(rawNumeric,"1000000"))
+ WHEN t.fee ENDS WITH "m" THEN toFloat(apoc.number.exact.mul(trim(rawNumeric),"1000000"))
+ ELSE toFloat(trim(rawNumeric))
 END AS numericFee
 SET t.numericFee = numericFee;
 
