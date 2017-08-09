@@ -8,6 +8,8 @@ import lib.scraper as scraper
 
 import glob
 
+import os.path
+
 def daterange(start_date, end_date):
     for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
@@ -46,21 +48,23 @@ def download_pages(event, context):
             single_date = parts[-5]
             page = parts[-1]
 
-            headers = {'user-agent': 'my-app/0.0.1'}
-            response = requests.get(url, stream=True, headers=headers)
-            with open("data/days/{single_date}-{page}.html".format(single_date=single_date, page=page), "wb") as handle:
-                for data in response.iter_content():
-                    handle.write(data)
+            page_path = "data/days/{single_date}-{page}.html".format(single_date=single_date, page=page)
+            if not os.path.isfile(page_path):
+                headers = {'user-agent': 'my-app/0.0.1'}
+                response = requests.get(url, stream=True, headers=headers)
+                with open(page_path, "wb") as handle:
+                    for data in response.iter_content():
+                        handle.write(data)
 
 
 def find_all_pages(event, context):
-    with open("/tmp/pages.csv", "w") as pages_file:
+    with open("/tmp/pages.csv", "a") as pages_file:
         writer = csv.writer(pages_file, delimiter=",")
 
         print("event: {event}".format(event=event))
 
-        start_date = date(2017, 7, 1)
-        end_date = date(2017, 8, 4)
+        start_date = date(2017, 8, 5)
+        end_date = date(2017, 8, 9)
         for single_date in daterange(start_date, end_date):
             print(single_date.strftime("%Y-%m-%d"))
 
