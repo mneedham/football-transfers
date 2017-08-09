@@ -31,21 +31,6 @@ SET ofPlayer.age = row.playerAge
 MERGE (t)-[:FROM_CLUB]->(source)
 MERGE (t)-[:TO_CLUB]->(destination);
 
-// convert numeric transfer fees (with rounding issues)
-// MATCH (t:Transfer)
-// WITH t, replace(replace(replace(replace(t.fee, "k", ""), "m", ""), "Loan fee:", ""), "£", "") AS rawNumeric
-// WITH t,
-// CASE
-//  WHEN t.fee ENDS WITH "k" THEN toFloat(rawNumeric) * 1000
-//  WHEN trim(t.fee) IN ["Free transfer", "ablösefrei ", "gratuito", "free", "free transfer",
-//                 "Ablösefrei", "transfervrij", "ablöserei", "Free Transfer", "Libre",
-//                 "gratutito", "ablsöefrei", "ablösefrei", "ablösefei", "abösefrei", "Loan",
-//                 "draft", "Swap deal", "trade"] THEN 0
-//  WHEN NOT(exists(t.fee)) THEN 0
-//  ELSE toFloat(rawNumeric) * 1000 * 1000
-// END AS numericFee
-// SET t.numericFee = numericFee;
-
 // convert numeric transfer fees (with apoc)
 MATCH (t:Transfer)
 WHERE not(t.fee  contains "?") and not(t.fee  contains "-")
