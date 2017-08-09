@@ -1,5 +1,6 @@
 import csv
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
+from dateutil import parser
 
 import requests
 
@@ -17,18 +18,20 @@ def scrape_transfers(event, context):
 
     with open("/tmp/transfers.csv", "w") as transfers_file:
         writer = csv.writer(transfers_file, delimiter=",")
+
         writer.writerow(["season",
             "playerUri", "playerName", "playerPosition", "playerAge",
             "sellerClubUri", "sellerClubName", "sellerClubCountry",
             "buyerClubUri", "buyerClubName", "buyerClubCountry",
             "transferUri", "transferFee",
-            "playerImage"])
+            "playerImage", "playerNationality",
+            "timestamp"])
 
         for file_path in glob.glob("data/days/*.html"):
             print(file_path)
             for row in scraper.scrape_transfers(file_path):
                 print(list(row))
-                writer.writerow(["16/17"] + list(row))
+                writer.writerow(list(row))
 
 
 def download_pages(event, context):
@@ -56,11 +59,12 @@ def find_all_pages(event, context):
 
         print("event: {event}".format(event=event))
 
-        start_date = date(2017, 8, 1)
+        start_date = date(2017, 7, 1)
         end_date = date(2017, 8, 4)
         for single_date in daterange(start_date, end_date):
             print(single_date.strftime("%Y-%m-%d"))
 
-            link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu//leihe//datum/{single_date}/plus/0/page/{page}"
-            for page in scraper.find_all_pages(link_template.format(single_date=single_date, page=0)):
+            base_link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu//leihe//datum/{single_date}/plus/0/page/0"
+            link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu//leihe//datum/{single_date}/plus/1/page/{page}"
+            for page in scraper.find_all_pages(base_link_template.format(single_date=single_date)):
                 writer.writerow([link_template.format(page=page, single_date=single_date)])
