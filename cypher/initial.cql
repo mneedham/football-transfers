@@ -24,7 +24,7 @@ MATCH (player:Player {id: row.playerUri})
 MATCH (source:Club {id: row.sellerClubUri})
 MATCH (destination:Club {id: row.buyerClubUri})
 MERGE (t:Transfer {id: row.transferUri})
-ON CREATE SET t.season = row.season, t.rank = row.transferRank,
+ON CREATE SET t.season = row.season,
               t.fee = row.transferFee,  t.timestamp = toInteger(row.timestamp)
 MERGE (t)-[ofPlayer:OF_PLAYER]->(player)
 SET ofPlayer.age = row.playerAge
@@ -33,7 +33,7 @@ MERGE (t)-[:TO_CLUB]->(destination);
 
 // convert numeric transfer fees (with apoc)
 MATCH (t:Transfer)
-WHERE not(t.fee  contains "?") and not(t.fee  contains "-")
+WHERE not(t.fee contains "?") and not(t.fee  contains "-")
 WITH t, replace(replace(replace(replace(t.fee, "k", ""), "m", ""), "Loan fee:", ""), "£", "") AS rawNumeric
 WITH t,
 CASE
