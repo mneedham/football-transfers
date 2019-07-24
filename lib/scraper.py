@@ -2,6 +2,7 @@ import requests
 
 from bs4 import BeautifulSoup
 from dateutil import parser
+import soupsieve as sv
 
 def find_all_pages(page):
     print(page)
@@ -78,3 +79,78 @@ def scrape_transfers(page):
                    player_image_element["src"],
                    nationality,
                    int(timestamp))
+
+
+def scrape_transfers2(page):
+    page = BeautifulSoup(open(page, "r"), "html.parser")
+
+    date = page.select("div.box h2")[0].text.replace("Transfer on ", "")
+    parsed_date = parser.parse(date)
+    timestamp = parsed_date.timestamp()
+
+    if parsed_date.month >= 7:
+        season = "{start}/{end}".format(start = parsed_date.year, end = parsed_date.year+1)
+    else:
+        season = "{start}/{end}".format(start = parsed_date.year-1, end = parsed_date.year)
+
+    for row in page.select("div#yw1 table.items tbody > tr"):
+        columns = sv.select (":scope > td", row)
+
+        if len(columns) == 7:
+            fee_element = columns[6].select("a")[0]
+
+            if fee_element.text == "Free Transfer":
+                break
+
+            player_image_element = columns[0].select("img")[0]
+            player_element = columns[0].select("a.spielprofil_tooltip")[0]
+            player_age = columns[1].text
+            player_position = columns[0].select("table tr td")[-1].text
+
+            from_club_elements = columns[3].select("td.hauptlink a.vereinprofil_tooltip")
+            from_club_href = from_club_elements[0]["href"] if len(from_club_elements) > 0 else ""
+            from_club_text = from_club_elements[0].text if len(from_club_elements) > 0 else ""
+
+            from_country_elements = columns[3].select("table tr td")[-1]
+            from_club_country_image = from_country_elements.select("img")
+            from_club_country = from_club_country_image[0]["title"] if len(from_club_country_image) > 0 else ""
+
+            from_club_league_elements = from_country_elements.select("a")
+            from_club_league = from_club_league_elements[0]["title"] if len(from_club_league_elements) > 0 else ""
+            from_club_league_href = from_club_league_elements[0]["href"] if len(from_club_league_elements) > 0 else ""
+
+            to_club_elements = columns[4].select("td.hauptlink a.vereinprofil_tooltip")
+            to_club_href = to_club_elements[0]["href"] if len(to_club_elements) > 0 else ""
+            to_club_text = to_club_elements[0].text if len(to_club_elements) > 0 else ""
+
+            to_country_elements = columns[4].select("table tr td")[-1]
+            to_club_country_image = to_country_elements.select("img")
+            to_club_country = to_club_country_image[0]["title"] if len(to_club_country_image) > 0 else ""
+
+            to_club_league_elements = to_country_elements.select("a")
+            to_club_league = to_club_league_elements[0]["title"] if len(to_club_league_elements) > 0 else ""
+            to_club_league_href = to_club_league_elements[0]["href"] if len(to_club_league_elements) > 0 else ""
+
+            nationality = columns[2].select("img")[0]["title"]
+
+            yield {"season": season,
+                   "player": {"href": player_element["href"],
+                              "name": player_element.text,
+                              "position": player_position,
+                              "age": player_age,
+                              "image": player_image_element["src"],
+                              "nationality": nationality},
+                   "from": {"href": from_club_href,
+                            "name": from_club_text,
+                            "country": from_club_country,
+                            "league": from_club_league,
+                            "leagueHref": from_club_league_href},
+                   "to": {"href": to_club_href,
+                          "name": to_club_text,
+                          "country": to_club_country,
+                          "league": to_club_league,
+                          "leagueHref": to_club_league_href},
+                   "transfer": {"href": fee_element["href"],
+                                "value": fee_element.text,
+                                "timestamp": int(timestamp)}
+                   }

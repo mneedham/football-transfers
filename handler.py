@@ -9,6 +9,7 @@ import lib.scraper as scraper
 import glob
 
 import os.path
+import json
 
 def daterange(start_date, end_date):
     for n in range(int((end_date - start_date).days)):
@@ -18,7 +19,7 @@ def daterange(start_date, end_date):
 def scrape_transfers(event, context):
     print("event: {event}".format(event=event))
 
-    with open("/tmp/transfers.csv", "w") as transfers_file:
+    with open("/tmp/transfers.json", "w") as transfers_file:
         writer = csv.writer(transfers_file, delimiter=",")
 
         writer.writerow(["season",
@@ -33,6 +34,22 @@ def scrape_transfers(event, context):
             print(file_path)
             for row in scraper.scrape_transfers(file_path):
                 writer.writerow(list(row))
+
+
+
+def scrape_pages(event, context):
+    print("event: {event}".format(event=event))
+
+    with open("/tmp/transfers.json", "w") as transfers_file:
+        writer = csv.writer(transfers_file, delimiter=",")
+
+        # for file_path in glob.glob("data/days/*.html"):
+        for file_path in glob.glob("data/days/top*.html"):
+            print(file_path)
+            for row in scraper.scrape_transfers2(file_path):
+                print(row)
+                json.dump(row,transfers_file)
+                transfers_file.write("\n")
 
 
 def download_pages(event, context):
@@ -62,12 +79,19 @@ def find_all_pages(event, context):
 
         print("event: {event}".format(event=event))
 
-        start_date = date(2017, 3, 16)
-        end_date = date(2017, 7, 1)
+        start_date = date(2019, 6, 1)
+        end_date = date(2019, 7, 24)
         for single_date in daterange(start_date, end_date):
             print(single_date.strftime("%Y-%m-%d"))
 
-            base_link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu//leihe//datum/{single_date}/plus/0/page/0"
-            link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu//leihe//datum/{single_date}/plus/1/page/{page}"
+            base_link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/plus/0?land_id_ab=&land_id_zu=&leihe=true&datum={single_date}"
+            # base_link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu/leihe/datum/{single_date}/plus/0/page/0"
+            link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/plus/1/page/{page}?land_id_ab=&land_id_zu=&leihe=true&datum={single_date}"
+            # link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/land_id_ab//land_id_zu//leihe/datum/{single_date}/plus/1/page/{page}?leihe=true"
             for page in scraper.find_all_pages(base_link_template.format(single_date=single_date)):
                 writer.writerow([link_template.format(page=page, single_date=single_date)])
+
+
+# find_all_pages(None, None)
+# download_pages(None, None)
+scrape_pages(None, None)

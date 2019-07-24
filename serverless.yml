@@ -14,11 +14,6 @@ provider:
   iamRoleStatements: # permissions for all of your functions can be set here
     - Effect: Allow
       Action:
-        - s3:ListBucket
-        - s3:PutObject
-      Resource: "arn:aws:s3:::training-certificates.neo4j.com/*"
-    - Effect: Allow
-      Action:
         - KMS:Decrypt
       Resource:
         - ${self:custom.kmsKeyArn}
