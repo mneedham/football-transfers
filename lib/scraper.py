@@ -110,6 +110,7 @@ def scrape_transfers2(page):
             from_club_elements = columns[3].select("td.hauptlink a.vereinprofil_tooltip")
             from_club_href = from_club_elements[0]["href"] if len(from_club_elements) > 0 else ""
             from_club_text = from_club_elements[0].text if len(from_club_elements) > 0 else ""
+            from_club_image = columns[3].select("td:first-child img")[0]["src"]
 
             from_country_elements = columns[3].select("table tr td")[-1]
             from_club_country_image = from_country_elements.select("img")
@@ -122,6 +123,7 @@ def scrape_transfers2(page):
             to_club_elements = columns[4].select("td.hauptlink a.vereinprofil_tooltip")
             to_club_href = to_club_elements[0]["href"] if len(to_club_elements) > 0 else ""
             to_club_text = to_club_elements[0].text if len(to_club_elements) > 0 else ""
+            to_club_image = columns[4].select("td:first-child img")[0]["src"]
 
             to_country_elements = columns[4].select("table tr td")[-1]
             to_club_country_image = to_country_elements.select("img")
@@ -144,12 +146,14 @@ def scrape_transfers2(page):
                             "name": from_club_text,
                             "country": from_club_country,
                             "league": from_club_league,
-                            "leagueHref": from_club_league_href},
+                            "leagueHref": from_club_league_href,
+                            "image": from_club_image},
                    "to": {"href": to_club_href,
                           "name": to_club_text,
                           "country": to_club_country,
                           "league": to_club_league,
-                          "leagueHref": to_club_league_href},
+                          "leagueHref": to_club_league_href,
+                          "image": to_club_image},
                    "transfer": {"href": fee_element["href"],
                                 "value": fee_element.text,
                                 "timestamp": int(timestamp)}
