@@ -143,6 +143,7 @@ def download_pages(file):
                     for data in response.iter_content():
                         handle.write(data)
 
+
 @click.command()
 @click.option('--file', default="/tmp/transfers.json", help='Destination file for scraped results to be written')
 def scrape_pages(file):
@@ -153,6 +154,7 @@ def scrape_pages(file):
                 print(row)
                 json.dump(row,transfers_file)
                 transfers_file.write("\n")
+
 
 cli.add_command(find_all_pages)
 cli.add_command(download_pages)
