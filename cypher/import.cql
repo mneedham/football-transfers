@@ -1,4 +1,4 @@
-call apoc.load.json("file:///transfers.json")
+call apoc.load.json("https://github.com/mneedham/football-transfers/raw/master/data/transfers.json")
 YIELD value
 WITH value, apoc.text.replace(value.transfer.value, "£", "") AS transferValue
 WHERE transferValue <> "?" AND transferValue <> "-"
@@ -15,6 +15,11 @@ FOREACH(ignoreMe IN CASE WHEN value.from.leagueHref = "" THEN [] ELSE [1] END |
   MERGE (from)-[:IN_LEAGUE]->(fromLeague)
 )
 
+FOREACH(ignoreMe IN CASE WHEN value.from.countryImage = "" THEN [] ELSE [1] END |
+  MERGE (fromCountry:Country {name: value.from.country})
+  SET fromCountry.image = value.from.countryImage
+)
+
 MERGE (to:Club {id: value.to.href})
 SET to.name = value.to.name
 
@@ -22,6 +27,11 @@ FOREACH(ignoreMe IN CASE WHEN value.to.leagueHref = "" THEN [] ELSE [1] END |
   MERGE (toLeague:League {id: value.to.leagueHref})
   SET toLeague.name = value.to.league
   MERGE (to)-[:IN_LEAGUE]->(toLeague)
+)
+
+FOREACH(ignoreMe IN CASE WHEN value.to.countryImage = "" THEN [] ELSE [1] END |
+  MERGE (toCountry:Country {name: value.to.country})
+  SET toCountry.image = value.to.countryImage
 )
 
 MERGE (t:Transfer {id: value.transfer.href})
