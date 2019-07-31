@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from dateutil import parser
 import soupsieve as sv
+from pathvalidate import sanitize_filename
 
 def find_all_pages(page):
     print(page)
@@ -147,6 +148,7 @@ def scrape_transfers2(page):
                             "country": from_club_country,
                             "countryImage": from_club_country_image[0]["src"] if len(from_club_country_image) > 0 else "",
                             "league": from_club_league,
+                            "leagueId": sanitize_filename(from_club_league_href) if from_club_league_href != "" else "",
                             "leagueHref": from_club_league_href,
                             "image": from_club_image},
                    "to": {"href": to_club_href,
@@ -154,6 +156,7 @@ def scrape_transfers2(page):
                           "country": to_club_country,
                           "countryImage": to_club_country_image[0]["src"] if len(to_club_country_image) > 0 else "",
                           "league": to_club_league,
+                          "leagueId": sanitize_filename(to_club_league_href) if to_club_league_href != "" else "",
                           "leagueHref": to_club_league_href,
                           "image": to_club_image},
                    "transfer": {"href": fee_element["href"],
