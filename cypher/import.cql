@@ -10,7 +10,7 @@ MERGE (from:Club {id: value.from.href})
 SET from.name = value.from.name
 
 FOREACH(ignoreMe IN CASE WHEN value.from.leagueHref = "" THEN [] ELSE [1] END |
-  MERGE (fromLeague:League {id: value.from.leagueHref})
+  MERGE (fromLeague:League {id: value.from.leagueId})
   SET fromLeague.name = value.from.league
   MERGE (from)-[:IN_LEAGUE]->(fromLeague)
 )
@@ -24,7 +24,7 @@ MERGE (to:Club {id: value.to.href})
 SET to.name = value.to.name
 
 FOREACH(ignoreMe IN CASE WHEN value.to.leagueHref = "" THEN [] ELSE [1] END |
-  MERGE (toLeague:League {id: value.to.leagueHref})
+  MERGE (toLeague:League {id: value.to.leagueId})
   SET toLeague.name = value.to.league
   MERGE (to)-[:IN_LEAGUE]->(toLeague)
 )
