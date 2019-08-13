@@ -4,7 +4,7 @@ WITH value, apoc.text.replace(value.transfer.value, "£", "") AS transferValue
 WHERE transferValue <> "?" AND transferValue <> "-"
 
 MERGE (p:Player {id: value.player.href})
-SET p.name = value.player.name
+SET p.name = value.player.name, p.image = value.player.image
 
 MERGE (from:Club {id: value.from.href})
 SET from.name = value.from.name
