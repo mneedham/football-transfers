@@ -45,8 +45,9 @@ MERGE (t)-[:OF_PLAYER]->(p)
 MERGE (t)-[:FROM_CLUB]->(from)
 MERGE (t)-[:TO_CLUB]->(to);
 
-call apoc.load.json("file:///leagues.json")
+call apoc.load.json("https://github.com/mneedham/football-transfers/raw/master/data/leagues.json")
 YIELD value
-MATCH (l:League {id: value.league})
+MATCH (l:League {id: value.league.id})
+SET l.image = value.image, l.name = value.league.name
 MERGE (c:Country {name: value.country})
 MERGE (l)-[:IN_COUNTRY]->(c);
