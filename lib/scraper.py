@@ -134,15 +134,12 @@ def scrape_transfers2(page):
             to_club_league = to_club_league_elements[0]["title"] if len(to_club_league_elements) > 0 else ""
             to_club_league_href = to_club_league_elements[0]["href"] if len(to_club_league_elements) > 0 else ""
 
-            nationality = columns[2].select("img")[0]["title"]
-
             yield {"season": season,
                    "player": {"href": player_element["href"],
                               "name": player_element.text,
                               "position": player_position,
                               "age": player_age,
-                              "image": player_image_element["src"],
-                              "nationality": nationality},
+                              "image": player_image_element["src"]},
                    "from": {"href": from_club_href,
                             "name": from_club_text,
                             "country": from_club_country,

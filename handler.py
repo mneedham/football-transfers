@@ -97,7 +97,7 @@ def cli():
 
 
 @click.command()
-@click.option('--file', default="/tmp/pages.csv", help='Destination file for pages to be written')
+@click.option('--file', default="/tmp/all_pages.csv", help='Destination file for pages to be written')
 @click.option('--date-start', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()), help='number of greetings')
 @click.option('--date-end', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()), help='number of greetings')
 def find_all_pages(file, date_start, date_end):
