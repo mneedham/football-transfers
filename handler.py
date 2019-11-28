@@ -129,7 +129,7 @@ def download_pages(file):
                 single_date = url.split("datum=")[-1]
                 page = (url.split("/")[-1]).split("?")[0]
 
-                page_path = "data/days/{single_date}_{page}.html".format(single_date=single_date, page=page)
+                page_path = "tmp/days/{single_date}_{page}.html".format(single_date=single_date, page=page)
                 if not os.path.isfile(page_path):
                     headers = {'user-agent': 'my-app/0.0.1'}
                     response = requests.get(url, stream=True, headers=headers)
@@ -143,7 +143,7 @@ def download_pages(file):
 @click.option('--file', default="/tmp/transfers.json", help='Destination file for scraped results to be written')
 def scrape_pages(file):
     with open(file, "w+", encoding="utf8") as transfers_file:
-        for file_path in glob.glob("data/days/*.html"):
+        for file_path in glob.glob("tmp/days/*.html"):
             print(file_path)
             for row in scraper.scrape_transfers2(file_path):
                 print(row)
