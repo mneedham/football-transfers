@@ -122,7 +122,7 @@ def download_pages(file):
 
         for row in reader:
             # filter empty lines
-            if len(row[0]) > 10:
+            if len(row) > 0 and len(row[0]) > 10:
                 url = row[0]
                 print(url)
 
