@@ -1,0 +1,9 @@
+handler.py:
+to final all pages for a certain time period:
+handler.py find-all-pages --file "C:\Users\Jan\Desktop\football-transfers-dataminer\tmp\all_pages.csv" --date-start 2018-01-01 --date-end 2019-01-01
+
+to download the information from all pages collected before:
+handler.py download-pages --file "C:\Users\Jan\Desktop\football-transfers-dataminer\tmp\all_pages.csv"
+
+to scrape all infromation from the downloaded pages:
+handler.py scrape-pages --file "C:\Users\Jan\Desktop\football-transfers-dataminer\tmp\transfers.json"

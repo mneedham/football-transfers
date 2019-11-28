@@ -1,0 +1,7 @@
+beautifulsoup4
+glob2
+requests
+click
+neo4j
+pathvalidate
+soupsieve

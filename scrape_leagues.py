@@ -1,6 +1,5 @@
 import glob
 import json
-
 from bs4 import BeautifulSoup
 
 with open("data/leagues.json", "w") as leagues_file:
