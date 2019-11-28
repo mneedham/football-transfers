@@ -155,11 +155,13 @@ def download_pages(file):
 def scrape_pages(file):
     with open(file, "w+", encoding="utf8") as transfers_file:
         for file_path in glob.glob("tmp/days/*.html"):
-            print(file_path)
             for row in scraper.scrape_transfers2(file_path):
                 json.dump(row, transfers_file)
                 transfers_file.write("\n")
             click.echo(f"Scraped all transfers from {file_path}")
+
+            dir_path, file_name = os.path.split(file_path)
+            move_file(file_path, dir_path + "/processed/" + file_name)
 
 
 cli.add_command(find_all_pages)
