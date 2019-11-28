@@ -121,20 +121,22 @@ def download_pages(file):
         reader = csv.reader(pages_file, delimiter=",")
 
         for row in reader:
-            url = row[0]
-            print(url)
+            # filter empty lines
+            if len(row[0]) > 10:
+                url = row[0]
+                print(url)
 
-            parts = url.split("/")
-            single_date = parts[-5]
-            page = parts[-1]
+                single_date = url.split("datum=")[-1]
+                page = (url.split("/")[-1]).split("?")[0]
 
-            page_path = "data/days/{single_date}-{page}.html".format(single_date=single_date, page=page)
-            if not os.path.isfile(page_path):
-                headers = {'user-agent': 'my-app/0.0.1'}
-                response = requests.get(url, stream=True, headers=headers)
-                with open(page_path, "wb+") as handle:
-                    for data in response.iter_content():
-                        handle.write(data)
+                page_path = "data/days/{single_date}_{page}.html".format(single_date=single_date, page=page)
+                if not os.path.isfile(page_path):
+                    headers = {'user-agent': 'my-app/0.0.1'}
+                    response = requests.get(url, stream=True, headers=headers)
+                    with open(page_path, "wb+") as handle:
+                        for data in response.iter_content():
+                            handle.write(data)
+
 
 
 @click.command()
