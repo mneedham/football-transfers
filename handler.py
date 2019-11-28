@@ -13,9 +13,20 @@ import json
 import click
 from datetime import date
 
+
 def daterange(start_date, end_date):
     for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
+
+
+def create_directory(dir_path: str):
+    if not os.path.isdir(dir_path):
+        os.mkdir(dir_path)
+
+
+def move_file(from_path: str, to_path:str):
+    create_directory(os.path.dirname(to_path))
+    os.rename(from_path, to_path)
 
 
 def scrape_transfers(event, context):
@@ -146,9 +157,9 @@ def scrape_pages(file):
         for file_path in glob.glob("tmp/days/*.html"):
             print(file_path)
             for row in scraper.scrape_transfers2(file_path):
-                print(row)
                 json.dump(row, transfers_file)
                 transfers_file.write("\n")
+            click.echo(f"Scraped all transfers from {file_path}")
 
 
 cli.add_command(find_all_pages)
