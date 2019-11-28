@@ -104,7 +104,7 @@ def find_all_pages(file, date_start, date_end):
     date_start = date_start.date()
     date_end = date_end.date()
     click.echo(f"Writing pages from {date_start} to {date_end} into {file}")
-    with open(file, "a+") as pages_file:
+    with open(file, "a+", encoding="utf8") as pages_file:
         writer = csv.writer(pages_file, delimiter=",")
         for single_date in daterange(date_start, date_end):
             base_link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/plus/0?land_id_ab=&land_id_zu=&leihe=true&datum={single_date}"
@@ -117,7 +117,7 @@ def find_all_pages(file, date_start, date_end):
 @click.option('--file', default="/tmp/all_pages.csv", help='Source file for pages to be downloaded')
 def download_pages(file):
     click.echo(f"Downloading pages from {file}")
-    with open(file, "r") as pages_file:
+    with open(file, "r", encoding="utf8") as pages_file:
         reader = csv.reader(pages_file, delimiter=",")
 
         for row in reader:
@@ -142,12 +142,12 @@ def download_pages(file):
 @click.command()
 @click.option('--file', default="/tmp/transfers.json", help='Destination file for scraped results to be written')
 def scrape_pages(file):
-    with open(file, "w+") as transfers_file:
-        for file_path in glob.glob("data/days/top*.html"):
+    with open(file, "w+", encoding="utf8") as transfers_file:
+        for file_path in glob.glob("data/days/*.html"):
             print(file_path)
             for row in scraper.scrape_transfers2(file_path):
                 print(row)
-                json.dump(row,transfers_file)
+                json.dump(row, transfers_file)
                 transfers_file.write("\n")
 
 

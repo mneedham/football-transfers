@@ -83,7 +83,7 @@ def scrape_transfers(page):
 
 
 def scrape_transfers2(page):
-    page = BeautifulSoup(open(page, "r"), "html.parser")
+    page = BeautifulSoup(open(page, "r", encoding="utf8"), "html.parser")
 
     date = page.select("div.box h2")[0].text.replace("Transfer on ", "")
     parsed_date = parser.parse(date)

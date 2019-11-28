@@ -20,4 +20,4 @@ The entry point for mining and extracting data from transfer market is: handler.
 `handler.py download-pages --file "C:\Users\Jan\Desktop\football-transfers\tmp\all_pages.csv"`
 
 **Scrape all infromation from the downloaded pages:**
-`handler.py scrape-pages --file "C:\Users\Jan\Desktop\football-transfers\tmp\transfers.json"`
+`handler.py scrape-pages --file "C:\Users\Jan\Desktop\football-transfers\data\transfers.json"`
