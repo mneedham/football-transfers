@@ -3,7 +3,7 @@ LOAD CSV WITH HEADERS FROM "file:///confederations.csv" AS row
 MERGE (c:Confederation {id: row.urlName})
 ON CREATE SET c.shortName = row.shortName,
               c.region = row.region,
-              c.name = row.name
+              c.name = row.name;
 
 // add countries
 LOAD CSV WITH HEADERS FROM "file:///countries.csv" AS row
