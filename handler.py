@@ -41,14 +41,14 @@ def __find_all_pages(file, date_start, date_end):
                 writer.writerow([link_template.format(page=page, single_date=single_date)])
 
 
-def __download_club_pages(clubs):
-    click.echo(f"Downloading pages for all {len(clubs)} clubs.")
+def __download_club_pages(clubs, year):
+    click.echo(f"Downloading transfer pages for all {len(clubs)} clubs.")
     for name, link in clubs.items():
         link_template = "https://www.transfermarkt.co.uk"
-        url = link_template + link.replace("startseite", "alletransfers")
+        url = link_template + link.replace("startseite", "transfers") + "/saison_id/" + str(year)
         headers = {'user-agent': 'my-app/0.0.1'}
         response = requests.get(url, stream=True, headers=headers)
-        club_path = "tmp/clubs/{club}.html".format(club=name.replace(" ", "_"))
+        club_path = "tmp/clubs/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
         create_directory("tmp/clubs")
         with open(club_path, "wb+") as handle:
             for data in response.iter_content():
@@ -79,7 +79,7 @@ def __download_pages(file):
 
 
 def __scrape_pages(file):
-    click.echo(f"Scraping all transfers from {file}")
+    click.echo(f"Scraping all transfers and writing to {file}")
     with open(file, "w+", encoding="utf8") as transfers_file:
         for file_path in glob.glob("tmp/days/*.html"):
             for row in scraper.scrape_transfers2(file_path):
@@ -90,11 +90,11 @@ def __scrape_pages(file):
 
 
 def __scrape_club_pages(file):
-    click.echo(f"Scraping all transfers from {file}")
+    click.echo(f"Scraping all transfers and writing to {file}")
     with open(file, "w+", encoding="utf8") as clubs_file:
         for file_path in glob.glob("tmp/clubs/*.html"):
-            for row in scraper.scrape_clubs(file_path):
-                json.dump(row, clubs_file)
+            for data in scraper.scrape_clubs(file_path):
+                json.dump(data, clubs_file)
                 clubs_file.write("\n")
             dir_path, file_name = os.path.split(file_path)
             move_file(file_path, dir_path + "/processed/" + file_name)
@@ -115,16 +115,17 @@ def __extract_transfers_ind(year_start, year_end):
         __scrape_pages(transfers_file)
 
 
-def __extract_transfers_club():
-    print("------------------------------------")
-    dir_path = os.path.dirname(__file__)
-    clubs = {'El Ahly': '/el-ahly-kairo/startseite/verein/7',
-             'Atl\u00e9tico Madrid': '/atletico-madrid/startseite/verein/13'}
+def __extract_transfers_club(year_start, year_end):
+    for year in range(year_start, year_end):
+        print("------------------", str(year), "------------------")
+        dir_path = os.path.dirname(__file__)
+        clubs = {'El Ahly': '/el-ahly-kairo/startseite/verein/7',
+                 'Atl\u00e9tico Madrid': '/atletico-madrid/startseite/verein/13'}
 
-    __download_club_pages(clubs)
+        __download_club_pages(clubs, year)
 
-    transfers_file = dir_path + "/data/transfers_club.json"
-    __scrape_club_pages(transfers_file)
+        transfers_file = dir_path + "/data/transfers_club_" + str(year) + ".json"
+        __scrape_club_pages(transfers_file)
 
 
 @click.group()
@@ -160,8 +161,10 @@ def extract_transfers_ind(year_start, year_end):
 
 
 @click.command()
-def extract_transfers_club():
-    __extract_transfers_club()
+@click.option('--year-start', type=str, default="2018", help='start year')
+@click.option('--year-end', type=str, default="2019", help='end year')
+def extract_transfers_club(year_start, year_end):
+    __extract_transfers_club(int(year_start), int(year_end))
 
 
 cli.add_command(find_all_pages)

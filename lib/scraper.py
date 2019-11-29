@@ -23,13 +23,72 @@ def find_all_pages(page):
         yield 0
 
 
+def __scrape_transfer_club(row):
+    columns = sv.select(":scope > td", row)
+
+    player_element = columns[1].find("img", {"class", "bilderrahmen-fixed"}) if not isinstance(columns[1].find("img", {"class", "bilderrahmen-fixed"}), type(None))\
+        else columns[1].find("img", {"class", "bilderrahmen"})
+    player_name = player_element["title"]
+    player_image = player_element["src"]
+    player_link = columns[1].find("td", {"class", "hauptlink"}).select("a")[0]["href"]
+    player_age = columns[2].text
+    player_nationality_image = columns[3].select("img")[0]["src"]
+    player_nationality = columns[3].select("img")[0]["title"]
+    club_name = columns[4].find("td", {"class", "hauptlink"}).find("a").text
+    club_href = columns[4].find("td", {"class", "hauptlink"}).find("a")["href"]
+    league = columns[4].find("td", {"class", "hauptlink"}).find("a").text
+    league_href = columns[4].find("td", {"class", "hauptlink"}).find("a")["href"]
+    player_fee = columns[5].select("a")[0].text
+    transfer_ref = columns[5].select("a")[0]["href"]
+
+    return {"player_name": player_name,
+            "player_href": player_link,
+            "player_image": player_image,
+            "player_age": player_age,
+            "player_nationality": player_nationality,
+            "player_nationality image": player_nationality_image,
+            "club_name": club_name,
+            "club_href": club_href,
+            "club_league": league,
+            "club_league_href": league_href,
+            "transfer_fee": player_fee,
+            "transfer_href": transfer_ref}
+
+
+def __scrape_club_season(page):
+    in_row = page.findAll("a", {"class", "anchor"}, {"name", "zugaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
+    out_row = page.findAll("a", {"class", "anchor"}, {"name", "abgaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
+    return {"out": tuple([__scrape_transfer_club(transfer_row) for transfer_row in out_row]),
+           "in": tuple([__scrape_transfer_club(transfer_row) for transfer_row in in_row])}
+
+
+def __scrape_club_info(page):
+    data_main = page.find("div", {"class": "dataMain"})
+    club_name = data_main.find("h1", {"itemprop": "name"}).text.strip()
+    image = page.find("div", {"class": "dataBild"}).select("img")[0]["src"]
+    value = page.find("div", {"class": "dataMarktwert"}).select("a")[0].text.split(" ")[0]
+    league_element = page.find("div", {"class": "dataZusatzDaten"})
+    league_image = page.find("div", {"class": "dataZusatzImage"}).select("img")[0]["src"]
+
+    return {"href": "UNK",
+          "club_name": club_name,
+          "club_image": image,
+          "club_value": value,
+          "club_league": league_element.find("span", {"class": "hauptpunkt"}).select("a")[0].text.strip(),
+          "club_leagueHref": league_element.find("span", {"class": "hauptpunkt"}).select("a")[0]["href"],
+          "club_leauge_image": league_image}
+
+
 def scrape_clubs(page):
     page = BeautifulSoup(open(page, "r", encoding="utf8"), "html.parser")
-    yield {"season": "UNK"}
+
+    yield {"club": __scrape_club_info(page),
+           "season_transfers": __scrape_club_season(page)}
 
 
 def scrape_transfers2(page):
     page = BeautifulSoup(open(page, "r", encoding="utf8"), "html.parser")
+    page.select("div#verein_head.row")
 
     date = page.select("div.box h2")[0].text.replace("Transfer on ", "")
     parsed_date = parser.parse(date)
