@@ -6,6 +6,7 @@ import glob
 import os.path
 import json
 import click
+from joblib import Parallel, delayed
 
 
 def date_range(start_date, end_date, ):
@@ -41,18 +42,57 @@ def __find_all_pages(file, date_start, date_end):
                 writer.writerow([link_template.format(page=page, single_date=single_date)])
 
 
+def __find_all_clubs(update: bool = True):
+    local_path = os.path.dirname(__file__)
+    clubs_path = local_path + "/data/clubs.json"
+    click.echo(f"Extracting all football clubs into {clubs_path}.")
+
+    try:
+        clubs_dict = json.load(open(clubs_path, "r+", encoding='utf-8'))
+        if not update:
+            return clubs_dict
+    except FileNotFoundError:
+        clubs_dict = {}
+
+    with open(local_path + "/data/clubs.json", "w+") as clubs_file:
+        for (dirpath, dirnames, filenames) in os.walk(local_path + "/data/transfers"):
+            for filename in filenames:
+                data = json.load(open(dirpath + "/" + filename, "r", encoding='utf-8'))
+                for elem in data:
+                    from_club = elem["from"]['name']
+                    from_club_href = elem["from"]['href']
+                    if from_club not in clubs_dict.keys() and len(from_club_href) > 15 and len(from_club) > 2:
+                        clubs_dict[from_club] = from_club_href
+
+                    to_club = elem["to"]['name']
+                    to_club_href = elem["to"]['href']
+                    if to_club not in clubs_dict.keys() and len(to_club_href) > 15 and len(to_club) > 2:
+                        clubs_dict[to_club] = to_club_href
+
+                clubs_file.seek(0)
+                json.dump(clubs_dict, clubs_file, indent=4)
+                click.echo(f"Wrote {len(clubs_dict)} football clubs into /data/clubs.json.")
+    return clubs_dict
+
+
 def __download_club_pages(clubs, year):
-    click.echo(f"Downloading transfer pages for all {len(clubs)} clubs.")
-    for name, link in clubs.items():
+    click.echo(f"Downloading transfer pages for all {len(clubs)} clubs for year {year}.")
+    create_directory("tmp/clubs")
+    Parallel(n_jobs=-1, prefer="threads")(delayed(__download_club_page)(year, name, link) for name, link in clubs.items())
+
+
+def __download_club_page(year, name, link):
+    club_path = "tmp/clubs/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
+    club_path_processed = "tmp/clubs/processed/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
+    if not os.path.isfile(club_path) and not os.path.isfile(club_path_processed):
         link_template = "https://www.transfermarkt.co.uk"
         url = link_template + link.replace("startseite", "transfers") + "/saison_id/" + str(year)
         headers = {'user-agent': 'my-app/0.0.1'}
         response = requests.get(url, stream=True, headers=headers)
-        club_path = "tmp/clubs/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
-        create_directory("tmp/clubs")
-        with open(club_path, "wb+") as handle:
+        with open(club_path, "wb+") as file:
+            file.seek(0)
             for data in response.iter_content():
-                handle.write(data)
+                file.write(data)
 
 
 def __download_pages(file):
@@ -83,21 +123,25 @@ def __scrape_pages(file):
     with open(file, "w+", encoding="utf8") as transfers_file:
         for file_path in glob.glob("tmp/days/*.html"):
             for row in scraper.scrape_transfers2(file_path):
-                json.dump(row, transfers_file)
+                json.dump(row, transfers_file, indent=4)
                 transfers_file.write("\n")
             dir_path, file_name = os.path.split(file_path)
             move_file(file_path, dir_path + "/processed/" + file_name)
 
 
-def __scrape_club_pages(file):
+def __scrape_club_pages(file, year):
     click.echo(f"Scraping all transfers and writing to {file}")
     with open(file, "w+", encoding="utf8") as clubs_file:
-        for file_path in glob.glob("tmp/clubs/*.html"):
-            for data in scraper.scrape_clubs(file_path):
-                json.dump(data, clubs_file)
-                clubs_file.write("\n")
-            dir_path, file_name = os.path.split(file_path)
-            move_file(file_path, dir_path + "/processed/" + file_name)
+        for file_path in glob.glob(f"tmp/clubs/*-{year}.html"):
+            ____scrape_club_page(file_path, clubs_file)
+
+
+def ____scrape_club_page(file_path, write_file):
+    data = scraper.scrape_clubs(file_path)
+    json.dump(data, write_file, indent=4)
+    write_file.write("\n")
+    dir_path, file_name = os.path.split(file_path)
+    # move_file(file_path, dir_path + "/processed/" + file_name)
 
 
 def __extract_transfers_ind(year_start, year_end):
@@ -119,13 +163,11 @@ def __extract_transfers_club(year_start, year_end):
     for year in range(year_start, year_end):
         print("------------------", str(year), "------------------")
         dir_path = os.path.dirname(__file__)
-        clubs = {'El Ahly': '/el-ahly-kairo/startseite/verein/7',
-                 'Atl\u00e9tico Madrid': '/atletico-madrid/startseite/verein/13'}
-
+        clubs = __find_all_clubs(False)
         __download_club_pages(clubs, year)
 
         transfers_file = dir_path + "/data/transfers_club_" + str(year) + ".json"
-        __scrape_club_pages(transfers_file)
+        __scrape_club_pages(transfers_file, year)
 
 
 @click.group()

@@ -1,13 +1,15 @@
+import logging
+import traceback
 import requests
-
 from bs4 import BeautifulSoup
 from dateutil import parser
 import soupsieve as sv
 from pathvalidate import sanitize_filename
 
+
 def find_all_pages(page):
     headers = {'user-agent': 'my-app/0.0.1'}
-    r = requests.get(page, headers= headers)
+    r = requests.get(page, headers=headers)
 
     page = BeautifulSoup(r.content, "html.parser")
     highest_page_link_element = page.select("li.letzte-seite a")
@@ -23,8 +25,10 @@ def find_all_pages(page):
         yield 0
 
 
-def __scrape_transfer_club(row):
+def __scrape_transfer_club(row, transfer_direction):
     columns = sv.select(":scope > td", row)
+    if len(columns) != 6:
+        return {"None"}
 
     player_element = columns[1].find("img", {"class", "bilderrahmen-fixed"}) if not isinstance(columns[1].find("img", {"class", "bilderrahmen-fixed"}), type(None))\
         else columns[1].find("img", {"class", "bilderrahmen"})
@@ -32,8 +36,13 @@ def __scrape_transfer_club(row):
     player_image = player_element["src"]
     player_link = columns[1].find("td", {"class", "hauptlink"}).select("a")[0]["href"]
     player_age = columns[2].text
-    player_nationality_image = columns[3].select("img")[0]["src"]
-    player_nationality = columns[3].select("img")[0]["title"]
+    try:
+        player_nationality = ','.join([columns[3].select("img")[counter]["title"] for counter in range(len(columns[3].select("img")))])
+        player_nationality_image = ', '.join([columns[3].select("img")[counter]["src"] for counter in range(len(columns[3].select("img")))])
+    except IndexError:
+        print(f"Error occurred while retrieving player nationality or nationality image for player {player_name}")
+        player_nationality = "UNK"
+        player_nationality_image = "UNK"
     club_name = columns[4].find("td", {"class", "hauptlink"}).find("a").text
     club_href = columns[4].find("td", {"class", "hauptlink"}).find("a")["href"]
     league = columns[4].find("td", {"class", "hauptlink"}).find("a").text
@@ -47,43 +56,65 @@ def __scrape_transfer_club(row):
             "player_age": player_age,
             "player_nationality": player_nationality,
             "player_nationality image": player_nationality_image,
-            "club_name": club_name,
-            "club_href": club_href,
-            "club_league": league,
-            "club_league_href": league_href,
+            f"{transfer_direction}_club_name": club_name,
+            f"{transfer_direction}_club_href": club_href,
+            f"{transfer_direction}_club_league": league,
+            f"{transfer_direction}_club_league_href": league_href,
             "transfer_fee": player_fee,
             "transfer_href": transfer_ref}
 
 
-def __scrape_club_season(page):
-    in_row = page.findAll("a", {"class", "anchor"}, {"name", "zugaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
-    out_row = page.findAll("a", {"class", "anchor"}, {"name", "abgaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
-    return {"out": tuple([__scrape_transfer_club(transfer_row) for transfer_row in out_row]),
-           "in": tuple([__scrape_transfer_club(transfer_row) for transfer_row in in_row])}
+def __scrape_club_season(page, club_name):
+    try:
+        from_row = page.findAll("a", {"class", "anchor"}, {"name", "zugaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
+    except IndexError:
+        from_row = []
+    try:
+        to_row = page.findAll("a", {"class", "anchor"}, {"name", "abgaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
+    except IndexError:
+        to_row = []
+    return {"Departures": tuple([__scrape_transfer_club(transfer_row, "to") for transfer_row in to_row]),
+           "Arrivals": tuple([__scrape_transfer_club(transfer_row, "from") for transfer_row in from_row])}
 
 
-def __scrape_club_info(page):
-    data_main = page.find("div", {"class": "dataMain"})
-    club_name = data_main.find("h1", {"itemprop": "name"}).text.strip()
-    image = page.find("div", {"class": "dataBild"}).select("img")[0]["src"]
-    value = page.find("div", {"class": "dataMarktwert"}).select("a")[0].text.split(" ")[0]
-    league_element = page.find("div", {"class": "dataZusatzDaten"})
-    league_image = page.find("div", {"class": "dataZusatzImage"}).select("img")[0]["src"]
-
-    return {"href": "UNK",
-          "club_name": club_name,
-          "club_image": image,
-          "club_value": value,
-          "club_league": league_element.find("span", {"class": "hauptpunkt"}).select("a")[0].text.strip(),
-          "club_leagueHref": league_element.find("span", {"class": "hauptpunkt"}).select("a")[0]["href"],
-          "club_leauge_image": league_image}
+def __scrape_club_name(page):
+    return page.find("h1", {"itemprop": "name"}).text.strip()
 
 
-def scrape_clubs(page):
-    page = BeautifulSoup(open(page, "r", encoding="utf8"), "html.parser")
+def __scrape_club_info(page,):
+    club_name = __scrape_club_name(page)
+    club_href = page.find("a", {"class", "megamenu"}, {"name", "SubNavi"})["href"]
+    image = page.find("div", {"class": "dataBild"}).select("img")[0]["src"] \
+        if not isinstance(page.find("div", {"class": "dataBild"}), type(None)) else "UNK"
+    value = page.find("div", {"class": "dataMarktwert"}).select("a")[0].text.split(" ")[0] \
+        if not isinstance(page.find("div", {"class": "dataMarktwert"}), type(None)) else "UNK"
+    league_element = page.find("div", {"class": "dataZusatzDaten"}) \
+        if not isinstance(page.find("div", {"class": "dataZusatzDaten"}), type(None)) else "UNK"
+    club_league = league_element if league_element == "UNK" else league_element.find("span", {"class": "hauptpunkt"}).select("a")[0].text.strip()
+    club_league_href = league_element if league_element == "UNK" else league_element.find("span", {"class": "hauptpunkt"}).select("a")[0]["href"]
+    league_image = page.find("div", {"class": "dataZusatzImage"}).select("img")[0]["src"] if  page.find("div", {"class": "dataZusatzImage"}) is not None else "UNK"
 
-    yield {"club": __scrape_club_info(page),
-           "season_transfers": __scrape_club_season(page)}
+    return {"href": club_href,
+            "club_name": club_name,
+            "club_image": image,
+            "club_value": value,
+            "club_league": club_league,
+            "club_leagueHref": club_league_href,
+            "club_league_image": league_image,
+            "season_transfers": __scrape_club_season(page, club_name)}
+
+
+def scrape_clubs(page_path):
+    page = BeautifulSoup(open(page_path, "r", encoding="utf8"), "html.parser")
+    try:
+        return {"club": __scrape_club_info(page)}
+    except (IndexError, AttributeError) as _:
+        try:
+            print(f"Error occurred while scraping club {__scrape_club_name(page)}")
+        finally:
+            print(f"Failed to parse club name from page {page_path}")
+            logging.error(traceback.format_exc())
+            return ""
 
 
 def scrape_transfers2(page):
