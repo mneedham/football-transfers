@@ -8,6 +8,7 @@ import json
 import click
 from joblib import Parallel, delayed
 import re
+import time
 
 def date_range(start_date, end_date, ):
     for n in range(int((end_date - start_date).days)):
@@ -162,11 +163,21 @@ def __extract_transfers_club(year_start, year_end):
     for year in range(year_start, year_end):
         print("------------------", str(year), "------------------")
         dir_path = os.path.dirname(__file__)
+        start_time = time.time()
         clubs = __find_all_clubs(False)
-        __download_club_pages(clubs, year)
+        end_time = time.time()
+        print(f"Finding all clubs took {end_time - start_time} seconds.")
 
+        start_time = time.time()
+        __download_club_pages(clubs, year)
+        end_time = time.time()
+        print(f"Downloading all clubs pages took {end_time - start_time} seconds.")
+
+        start_time = time.time()
         transfers_file = dir_path + "/data/transfers_club_" + str(year) + ".json"
         __scrape_club_pages(transfers_file, year)
+        end_time = time.time()
+        print(f"Scraping all transfers from all clubs pages took {end_time - start_time} seconds.")
 
 
 @click.group()
