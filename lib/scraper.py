@@ -35,6 +35,7 @@ def __scrape_transfer_club(row, transfer_direction):
     player_name = player_element["title"]
     player_image = player_element["src"]
     player_link = columns[1].find("td", {"class", "hauptlink"}).select("a")[0]["href"]
+    player_link = player_link if len(player_link) > 0 else "UNK"
     player_age = columns[2].text
     try:
         player_nationality = ','.join([columns[3].select("img")[counter]["title"] for counter in range(len(columns[3].select("img")))])
@@ -64,7 +65,7 @@ def __scrape_transfer_club(row, transfer_direction):
             "transfer_href": transfer_ref}
 
 
-def __scrape_club_season(page, club_name):
+def __scrape_club_season(page):
     try:
         from_row = page.findAll("a", {"class", "anchor"}, {"name", "zugaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
     except IndexError:
@@ -92,7 +93,10 @@ def __scrape_club_info(page,):
         if not isinstance(page.find("div", {"class": "dataZusatzDaten"}), type(None)) else "UNK"
     club_league = league_element if league_element == "UNK" else league_element.find("span", {"class": "hauptpunkt"}).select("a")[0].text.strip()
     club_league_href = league_element if league_element == "UNK" else league_element.find("span", {"class": "hauptpunkt"}).select("a")[0]["href"]
-    league_image = page.find("div", {"class": "dataZusatzImage"}).select("img")[0]["src"] if  page.find("div", {"class": "dataZusatzImage"}) is not None else "UNK"
+    try:
+        league_image = page.find("div", {"class": "dataZusatzImage"}).select("img")[0]["src"]
+    except (IndexError, AttributeError):
+        league_image = "UNK"
 
     return {"href": club_href,
             "club_name": club_name,
@@ -101,7 +105,7 @@ def __scrape_club_info(page,):
             "club_league": club_league,
             "club_leagueHref": club_league_href,
             "club_league_image": league_image,
-            "season_transfers": __scrape_club_season(page, club_name)}
+            "season_transfers": __scrape_club_season(page)}
 
 
 def scrape_clubs(page_path):

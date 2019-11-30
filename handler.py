@@ -78,7 +78,7 @@ def __find_all_clubs(update: bool = True):
 def __download_club_pages(clubs, year):
     click.echo(f"Downloading transfer pages for all {len(clubs)} clubs for year {year}.")
     create_directory("tmp/clubs")
-    Parallel(n_jobs=-1, prefer="threads")(delayed(__download_club_page)(year, name, link) for name, link in clubs.items())
+    Parallel(n_jobs=-1)(delayed(__download_club_page)(year, name, link) for name, link in clubs.items())
 
 
 def __download_club_page(year, name, link):
@@ -132,8 +132,7 @@ def __scrape_pages(file):
 def __scrape_club_pages(file, year):
     click.echo(f"Scraping all transfers and writing to {file}")
     with open(file, "w+", encoding="utf8") as clubs_file:
-        for file_path in glob.glob(f"tmp/clubs/*-{year}.html"):
-            ____scrape_club_page(file_path, clubs_file)
+        Parallel(n_jobs=-1, require='sharedmem')(delayed(____scrape_club_page)(file_path, clubs_file) for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
 
 
 def ____scrape_club_page(file_path, write_file):
