@@ -5,3 +5,4 @@ click
 neo4j
 pathvalidate
 soupsieve
+joblib

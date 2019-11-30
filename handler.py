@@ -7,7 +7,7 @@ import os.path
 import json
 import click
 from joblib import Parallel, delayed
-
+import re
 
 def date_range(start_date, end_date, ):
     for n in range(int((end_date - start_date).days)):
@@ -82,7 +82,7 @@ def __download_club_pages(clubs, year):
 
 
 def __download_club_page(year, name, link):
-    club_path = "tmp/clubs/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
+    club_path = "tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_\. ]', '_', name), year=str(year))
     club_path_processed = "tmp/clubs/processed/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
     if not os.path.isfile(club_path) and not os.path.isfile(club_path_processed):
         link_template = "https://www.transfermarkt.co.uk"
@@ -90,7 +90,6 @@ def __download_club_page(year, name, link):
         headers = {'user-agent': 'my-app/0.0.1'}
         response = requests.get(url, stream=True, headers=headers)
         with open(club_path, "wb+") as file:
-            file.seek(0)
             for data in response.iter_content():
                 file.write(data)
 
@@ -140,7 +139,7 @@ def ____scrape_club_page(file_path, write_file):
     json.dump(data, write_file, indent=4)
     write_file.write("\n")
     dir_path, file_name = os.path.split(file_path)
-    # move_file(file_path, dir_path + "/processed/" + file_name)
+    move_file(file_path, dir_path + "/processed/" + file_name)
 
 
 def __extract_transfers_ind(year_start, year_end):
@@ -159,6 +158,7 @@ def __extract_transfers_ind(year_start, year_end):
 
 
 def __extract_transfers_club(year_start, year_end):
+    create_directory(os.path.dirname(__file__) + "/tmp")
     for year in range(year_start, year_end):
         print("------------------", str(year), "------------------")
         dir_path = os.path.dirname(__file__)
