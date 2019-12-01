@@ -1,6 +1,6 @@
 import csv
 from datetime import timedelta, date, datetime
-import requests
+import grequests
 import lib.scraper as scraper
 import glob
 import os.path
@@ -9,6 +9,7 @@ import click
 from joblib import Parallel, delayed
 import re
 import time
+import requests
 
 def date_range(start_date, end_date, ):
     for n in range(int((end_date - start_date).days)):
@@ -26,7 +27,6 @@ def create_directory(dir_path: str):
 
 
 def move_file(from_path: str, to_path:str):
-    create_directory(os.path.dirname(to_path))
     os.rename(from_path, to_path)
 
 
@@ -76,23 +76,28 @@ def __find_all_clubs(update: bool = True):
     return clubs_dict
 
 
+def __generate_club_url(year, name, link):
+    link_template = "https://www.transfermarkt.co.uk"
+    return link_template + link.replace("startseite", "transfers") + "/saison_id/" + str(year), name
+
+
+def __save_response_hook(path):
+    def __save_response(response, **kwargs):
+        with open(path, "wb+") as file:
+            for data in response.iter_content():
+                file.write(data)
+    return __save_response
+
+
 def __download_club_pages(clubs, year):
     click.echo(f"Downloading transfer pages for all {len(clubs)} clubs for year {year}.")
     create_directory("tmp/clubs")
-    Parallel(n_jobs=-1)(delayed(__download_club_page)(year, name, link) for name, link in clubs.items())
+    headers = {'user-agent': 'my-app/0.0.1'}
 
-
-def __download_club_page(year, name, link):
-    club_path = "tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_\. ]', '_', name), year=str(year))
-    club_path_processed = "tmp/clubs/processed/{club}-{year}.html".format(club=name.replace(" ", "_"), year=str(year))
-    if not os.path.isfile(club_path) and not os.path.isfile(club_path_processed):
-        link_template = "https://www.transfermarkt.co.uk"
-        url = link_template + link.replace("startseite", "transfers") + "/saison_id/" + str(year)
-        headers = {'user-agent': 'my-app/0.0.1'}
-        response = requests.get(url, stream=True, headers=headers)
-        with open(club_path, "wb+") as file:
-            for data in response.iter_content():
-                file.write(data)
+    urls = [__generate_club_url(year, name, link) for name, link in clubs.items()]
+    requests_async = [grequests.get(url, headers=headers, hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_\. ]', '_', name), year=str(year)))})
+                      for url, name in urls]
+    grequests.map(requests_async, size=500)
 
 
 def __download_pages(file):
@@ -174,6 +179,7 @@ def __extract_transfers_club(year_start, year_end):
         print(f"Downloading all clubs pages took {end_time - start_time} seconds.")
 
         start_time = time.time()
+        create_directory(dir_path + "/tmp/clubs/processed")
         transfers_file = dir_path + "/data/transfers_club_" + str(year) + ".json"
         __scrape_club_pages(transfers_file, year)
         end_time = time.time()
