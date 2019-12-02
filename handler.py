@@ -10,6 +10,13 @@ from joblib import Parallel, delayed
 import re
 import time
 import requests
+from math import ceil
+import multiprocessing
+
+
+def parallel_jobs() -> int:
+    return int(multiprocessing.cpu_count() - 1)
+
 
 def date_range(start_date, end_date, ):
     for n in range(int((end_date - start_date).days)):
@@ -28,6 +35,15 @@ def create_directory(dir_path: str):
 
 def move_file(from_path: str, to_path:str):
     os.rename(from_path, to_path)
+
+
+def split_dic(dic, chunk_num):
+    dicts = [{} for _ in range(chunk_num)]
+    dict_size = ceil(len(dic) / chunk_num)
+    for counter, (name, link) in enumerate(dic.items(), 1):
+        dicts[int(counter / dict_size)][name] = link
+
+    return dicts
 
 
 def __find_all_pages(file, date_start, date_end):
@@ -95,9 +111,10 @@ def __download_club_pages(clubs, year):
     headers = {'user-agent': 'my-app/0.0.1'}
 
     urls = [__generate_club_url(year, name, link) for name, link in clubs.items()]
-    requests_async = [grequests.get(url, headers=headers, hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_\. ]', '_', name), year=str(year)))})
+    requests_async = [grequests.get(url, headers=headers,
+                                    hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', name), year=str(year)))})
                       for url, name in urls]
-    grequests.map(requests_async, size=500)
+    grequests.map(requests_async, size=None)
 
 
 def __download_pages(file):
@@ -137,7 +154,8 @@ def __scrape_pages(file):
 def __scrape_club_pages(file, year):
     click.echo(f"Scraping all transfers and writing to {file}")
     with open(file, "w+", encoding="utf8") as clubs_file:
-        Parallel(n_jobs=-1, require='sharedmem')(delayed(____scrape_club_page)(file_path, clubs_file) for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
+        Parallel(n_jobs=parallel_jobs(), require='sharedmem')(delayed(____scrape_club_page)(file_path, clubs_file)
+                                                              for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
 
 
 def ____scrape_club_page(file_path, write_file):
@@ -174,7 +192,9 @@ def __extract_transfers_club(year_start, year_end):
         print(f"Finding all clubs took {end_time - start_time} seconds.")
 
         start_time = time.time()
-        __download_club_pages(clubs, year)
+        club_dicts = split_dic(clubs, parallel_jobs())
+        Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
+                                                              for clubs_chunk in club_dicts)
         end_time = time.time()
         print(f"Downloading all clubs pages took {end_time - start_time} seconds.")
 
@@ -193,8 +213,8 @@ def cli():
 
 @click.command()
 @click.option('--file', default="/tmp/transfer_pages.csv", help='Destination file for pages to be written')
-@click.option('--date-start', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()), help='number of greetings')
-@click.option('--date-end', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()), help='number of greetings')
+@click.option('--date-start', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()))
+@click.option('--date-end', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()))
 def find_all_pages(file, date_start, date_end):
     __find_all_pages(file, date_start, date_end)
 
