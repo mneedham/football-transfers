@@ -114,7 +114,7 @@ def __download_club_pages(clubs, year):
     requests_async = [grequests.get(url, headers=headers,
                                     hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', name), year=str(year)))})
                       for url, name in urls]
-    grequests.map(requests_async, size=None)
+    grequests.map(requests_async, size=2000)
 
 
 def __download_pages(file):
