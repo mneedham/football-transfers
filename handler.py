@@ -11,11 +11,11 @@ import re
 import time
 import requests
 from math import ceil
-import multiprocessing
+from multiprocessing import Process, JoinableQueue, cpu_count
 
 
 def parallel_jobs() -> int:
-    return int(multiprocessing.cpu_count() - 1)
+    return int(cpu_count() - 1)
 
 
 def date_range(start_date, end_date, ):
@@ -44,6 +44,17 @@ def split_dic(dic, chunk_num):
         dicts[int(counter / dict_size)][name] = link
 
     return dicts
+
+
+def parallel_write(q, file_path):
+    with open(file_path, 'w+', encoding='utf-8') as file:
+        while True:
+            val = q.get()
+            if val is None:
+                break
+            file.write(val)
+            q.task_done()
+        q.task_done()
 
 
 def __find_all_pages(file, date_start, date_end):
@@ -146,22 +157,31 @@ def __scrape_pages(file):
         for file_path in glob.glob("tmp/days/*.html"):
             for row in scraper.scrape_transfers2(file_path):
                 json.dump(row, transfers_file, indent=4)
-                transfers_file.write("\n")
+                transfers_file.write(",\n")
             dir_path, file_name = os.path.split(file_path)
             move_file(file_path, dir_path + "/processed/" + file_name)
 
 
 def __scrape_club_pages(file, year):
     click.echo(f"Scraping all transfers and writing to {file}")
-    with open(file, "w+", encoding="utf8") as clubs_file:
-        Parallel(n_jobs=parallel_jobs(), require='sharedmem')(delayed(____scrape_club_page)(file_path, clubs_file)
-                                                              for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
+
+    q = JoinableQueue()
+    p = Process(target=parallel_write, args=(q, file, ))
+    p.start()
+    q.put("[")
+    Parallel(n_jobs=parallel_jobs())(delayed(____scrape_club_page)(q, file_path)
+                                                          for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
+    q.put("]")
+    q.put(None)
+    q.join()
+    p.join()
 
 
-def ____scrape_club_page(file_path, write_file):
+def ____scrape_club_page(q, file_path):
     data = scraper.scrape_clubs(file_path)
-    json.dump(data, write_file, indent=4)
-    write_file.write("\n")
+    json_data = json.dumps(data, indent=4)
+    json_data += ",\n"
+    q.put(json_data)
     dir_path, file_name = os.path.split(file_path)
     move_file(file_path, dir_path + "/processed/" + file_name)
 
@@ -193,8 +213,8 @@ def __extract_transfers_club(year_start, year_end):
 
         start_time = time.time()
         club_dicts = split_dic(clubs, parallel_jobs())
-        Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
-                                                              for clubs_chunk in club_dicts)
+        # Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
+                 #                                             for clubs_chunk in club_dicts)
         end_time = time.time()
         print(f"Downloading all clubs pages took {end_time - start_time} seconds.")
 

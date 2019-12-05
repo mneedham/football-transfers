@@ -111,7 +111,7 @@ def __scrape_club_info(page,):
 def scrape_clubs(page_path):
     page = BeautifulSoup(open(page_path, "r", encoding="utf8"), "html.parser")
     try:
-        return {"club": __scrape_club_info(page)}
+        return {str(__scrape_club_name(page)): __scrape_club_info(page)}
     except (IndexError, AttributeError) as _:
         try:
             print(f"Error occurred while scraping club {__scrape_club_name(page)}")
