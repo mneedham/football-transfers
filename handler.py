@@ -117,15 +117,28 @@ def __save_response_hook(path):
 
 
 def __download_club_pages(clubs, year):
-    click.echo(f"Downloading transfer pages for all {len(clubs)} clubs for year {year}.")
-    create_directory("tmp/clubs")
     headers = {'user-agent': 'my-app/0.0.1'}
-
     urls = [__generate_club_url(year, name, link) for name, link in clubs.items()]
-    requests_async = [grequests.get(url, headers=headers,
-                                    hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', name), year=str(year)))})
-                      for url, name in urls]
-    grequests.map(requests_async, size=2000)
+    failed = {}
+    first = True
+
+    def __exception_handler(request, exception):
+        failed.append(request)
+        print(exception)
+
+    while len(failed) > 0 or first:
+        if first:
+            urls_filtered = list(filter(lambda val:
+                                        not os.path.isfile("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', val[1]), year=str(year)))
+                                        and not os.path.isfile("tmp/clubs/processed/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', val[1]), year=str(year))), urls))
+            first = False
+            requests_async = [grequests.get(url, headers=headers,
+                                            hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', name), year=str(year)))})
+                              for url, name in urls_filtered]
+            grequests.map(requests_async, size=None, exception_handler=__exception_handler)
+        else:
+            print(f"Querying {len(failed)} pages again.")
+            grequests.map(failed, size=None, exception_handler=__exception_handler)
 
 
 def __download_pages(file):
@@ -169,7 +182,7 @@ def __scrape_club_pages(file, year):
     p = Process(target=parallel_write, args=(q, file, ))
     p.start()
     q.put("[")
-    Parallel(n_jobs=parallel_jobs())(delayed(____scrape_club_page)(q, file_path)
+    Parallel(n_jobs=parallel_jobs(), require='sharedmem')(delayed(____scrape_club_page)(q, file_path)
                                                           for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
     q.put("]")
     q.put(None)
@@ -212,9 +225,13 @@ def __extract_transfers_club(year_start, year_end):
         print(f"Finding all clubs took {end_time - start_time} seconds.")
 
         start_time = time.time()
+        click.echo(f"Downloading transfer pages for all {len(clubs)} clubs for year {year}.")
+        create_directory("tmp/clubs")
         club_dicts = split_dic(clubs, parallel_jobs())
-        # Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
-                 #                                             for clubs_chunk in club_dicts)
+        Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
+                                                              for clubs_chunk in club_dicts)
+        Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
+                                         for clubs_chunk in club_dicts)
         end_time = time.time()
         print(f"Downloading all clubs pages took {end_time - start_time} seconds.")
 
