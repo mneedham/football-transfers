@@ -9,15 +9,12 @@
 
 ## Mine Data
 
-The entry point for mining and extracting data from transfer market is: handler.py in the project root folder.
+The entry point for mining and extracting data from transfer market is: main.py in the project root folder. The leagues to select the clubs from are specified in "/data/leagues_filter.json".
 
 
 
-**Find all pages for a certain time period:**
-`handler.py find-all-pages --file "C:\Users\Jan\Desktop\football-transfers\tmp\all_pages.csv" --date-start 2018-01-01 --date-end 2019-01-01`
+**Extract all transfers from the given clubs for the given period:**
+`main.py extract-transfers-club --file "/data/clubs.json" --year-start "2000" --year-end "2020"`
 
-**Download the information from all pages collected before:**
-`handler.py download-pages --file "C:\Users\Jan\Desktop\football-transfers\tmp\all_pages.csv"`
-
-**Scrape all information from the downloaded pages:**
-`handler.py scrape-pages --file "C:\Users\Jan\Desktop\football-transfers\data\transfers2018.json"`
+**Extract all clubs from the specified leagues for the given period:**
+`main.py extract-leagues-club --file "/data/clubs.json" --year-start "2000" --year-end "2020"`

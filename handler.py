@@ -1,40 +1,21 @@
-import csv
-from datetime import timedelta, date, datetime
-import grequests
-import lib.scraper as scraper
 import glob
 import os.path
 import json
+from typing import Union
 import click
 from joblib import Parallel, delayed
-import re
 import time
-import requests
 from math import ceil
 from multiprocessing import Process, JoinableQueue, cpu_count
+from page_extractor import extract_clubs, extract_league
+from Downloader import download_transfer_pages, download_league_pages, download_club_pages
+from IOHelper import create_directory, move_file, parallel_write, remove_file
+from json import JSONDecodeError
+from collections import defaultdict
 
 
 def parallel_jobs() -> int:
-    return int(cpu_count() - 1)
-
-
-def date_range(start_date, end_date, ):
-    for n in range(int((end_date - start_date).days)):
-        yield start_date + timedelta(n)
-
-
-def date_range_year(start_date, end_date):
-    for n in range(int((end_date - start_date).years)):
-        yield start_date + timedelta(n)
-
-
-def create_directory(dir_path: str):
-    if not os.path.isdir(dir_path):
-        os.mkdir(dir_path)
-
-
-def move_file(from_path: str, to_path:str):
-    os.rename(from_path, to_path)
+    return int(cpu_count() - 3)
 
 
 def split_dic(dic, chunk_num):
@@ -46,33 +27,8 @@ def split_dic(dic, chunk_num):
     return dicts
 
 
-def parallel_write(q, file_path):
-    with open(file_path, 'w+', encoding='utf-8') as file:
-        while True:
-            val = q.get()
-            if val is None:
-                break
-            file.write(val)
-            q.task_done()
-        q.task_done()
-
-
-def __find_all_pages(file, date_start, date_end):
-    date_start = date_start.date()
-    date_end = date_end.date()
-    click.echo(f"Writing pages from {date_start} to {date_end} into {file}")
-    with open(file, "w+", encoding="utf8") as pages_file:
-        writer = csv.writer(pages_file, delimiter=",")
-        for single_date in date_range(date_start, date_end):
-            base_link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/plus/0?land_id_ab=&land_id_zu=&leihe=true&datum={single_date}"
-            link_template = "https://www.transfermarkt.co.uk/transfers/transfertagedetail/statistik/top/plus/1/page/{page}?land_id_ab=&land_id_zu=&leihe=true&datum={single_date}"
-            for page in scraper.find_all_pages(base_link_template.format(single_date=single_date)):
-                writer.writerow([link_template.format(page=page, single_date=single_date)])
-
-
-def __find_all_clubs(update: bool = True):
+def collect_club_pages(clubs_path, out_file, update: bool = True):
     local_path = os.path.dirname(__file__)
-    clubs_path = local_path + "/data/clubs.json"
     click.echo(f"Extracting all football clubs into {clubs_path}.")
 
     try:
@@ -82,7 +38,7 @@ def __find_all_clubs(update: bool = True):
     except FileNotFoundError:
         clubs_dict = {}
 
-    with open(local_path + "/data/clubs.json", "w+") as clubs_file:
+    with open(out_file, "w+") as clubs_file:
         for (dirpath, dirnames, filenames) in os.walk(local_path + "/data/transfers"):
             for filename in filenames:
                 data = json.load(open(dirpath + "/" + filename, "r", encoding='utf-8'))
@@ -99,195 +55,182 @@ def __find_all_clubs(update: bool = True):
 
                 clubs_file.seek(0)
                 json.dump(clubs_dict, clubs_file, indent=4)
-                click.echo(f"Wrote {len(clubs_dict)} football clubs into /data/clubs.json.")
+                click.echo(f"Wrote {len(clubs_dict)} football clubs into {out_file}.")
     return clubs_dict
 
 
-def __generate_club_url(year, name, link):
-    link_template = "https://www.transfermarkt.co.uk"
-    return link_template + link.replace("startseite", "transfers") + "/saison_id/" + str(year), name
+def __extract_club_pages(file, year):
+    __extract_page(file, year, __extract_club_page, "clubs")
 
 
-def __save_response_hook(path):
-    def __save_response(response, **kwargs):
-        with open(path, "wb+") as file:
-            for data in response.iter_content():
-                file.write(data)
-    return __save_response
+def __extract_league_pages(file, year):
+    __extract_page(file, year, __extract_league_page, "leagues")
 
 
-def __download_club_pages(clubs, year):
-    headers = {'user-agent': 'my-app/0.0.1'}
-    urls = [__generate_club_url(year, name, link) for name, link in clubs.items()]
-    failed = {}
-    first = True
-
-    def __exception_handler(request, exception):
-        failed.append(request)
-        print(exception)
-
-    while len(failed) > 0 or first:
-        if first:
-            urls_filtered = list(filter(lambda val:
-                                        not os.path.isfile("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', val[1]), year=str(year)))
-                                        and not os.path.isfile("tmp/clubs/processed/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', val[1]), year=str(year))), urls))
-            first = False
-            requests_async = [grequests.get(url, headers=headers,
-                                            hooks={'response': __save_response_hook("tmp/clubs/{club}-{year}.html".format(club=re.sub('[^\w\-_. ]', '_', name), year=str(year)))})
-                              for url, name in urls_filtered]
-            grequests.map(requests_async, size=None, exception_handler=__exception_handler)
-        else:
-            print(f"Querying {len(failed)} pages again.")
-            grequests.map(failed, size=None, exception_handler=__exception_handler)
-
-
-def __download_pages(file):
-    click.echo(f"Downloading pages from {file}")
-    with open(file, "r", encoding="utf8") as pages_file:
-        reader = csv.reader(pages_file, delimiter=",")
-
-        for row in reader:
-            # filter empty lines
-            if len(row) > 0 and len(row[0]) > 10:
-                url = row[0]
-
-                single_date = url.split("datum=")[-1]
-                page = (url.split("/")[-1]).split("?")[0]
-
-                page_path = "tmp/days/{single_date}_{page}.html".format(single_date=single_date, page=page)
-                if not os.path.isfile(page_path):
-                    headers = {'user-agent': 'my-app/0.0.1'}
-                    response = requests.get(url, stream=True, headers=headers)
-                    create_directory("tmp/days")
-                    with open(page_path, "wb+") as handle:
-                        for data in response.iter_content():
-                            handle.write(data)
-
-
-def __scrape_pages(file):
-    click.echo(f"Scraping all transfers and writing to {file}")
-    with open(file, "w+", encoding="utf8") as transfers_file:
-        for file_path in glob.glob("tmp/days/*.html"):
-            for row in scraper.scrape_transfers2(file_path):
-                json.dump(row, transfers_file, indent=4)
-                transfers_file.write(",\n")
-            dir_path, file_name = os.path.split(file_path)
-            move_file(file_path, dir_path + "/processed/" + file_name)
-
-
-def __scrape_club_pages(file, year):
-    click.echo(f"Scraping all transfers and writing to {file}")
-
+def __extract_page(file, year, function, description):
+    click.echo(f"Extracting all {description} and writing to {file}")
     q = JoinableQueue()
     p = Process(target=parallel_write, args=(q, file, ))
     p.start()
     q.put("[")
-    Parallel(n_jobs=parallel_jobs(), require='sharedmem')(delayed(____scrape_club_page)(q, file_path)
-                                                          for file_path in glob.glob(f"tmp/clubs/*-{year}.html"))
+    Parallel(n_jobs=parallel_jobs(), require="sharedmem")(delayed(function)(q, file_path)
+                                                          for file_path in glob.glob(f"tmp/{description}/*-{year}.html"))
     q.put("]")
     q.put(None)
     q.join()
     p.join()
 
 
-def ____scrape_club_page(q, file_path):
-    data = scraper.scrape_clubs(file_path)
-    json_data = json.dumps(data, indent=4)
-    json_data += ",\n"
+def __extract_club_page(q, file_path):
+    data = extract_clubs(file_path)
+    __dump_page(q, file_path, data)
+
+
+def __extract_league_page(q, file_path):
+    data = extract_league(file_path)
+    __dump_page(q, file_path, data)
+
+
+def __dump_page(q, file_path, data):
+    json_data = ",\n"
+    json_data += json.dumps(data, indent=4)
+
     q.put(json_data)
     dir_path, file_name = os.path.split(file_path)
     move_file(file_path, dir_path + "/processed/" + file_name)
 
 
-def __extract_transfers_ind(year_start, year_end):
+def extract_transfers_clubs(file_path, year_start, year_end):
+    dir_path = os.path.dirname(__file__)
+    clubs = json.load(open(dir_path + file_path, "r", encoding='utf-8'))
+
+    extract_entity(year_start, year_end, "clubs", clubs, download_club_pages, __extract_club_pages, "transfers")
+
+
+def extract_leagues_clubs(file_path, year_start, year_end):
+    dir_path = os.path.dirname(__file__)
+    leagues = json.load(open(dir_path + "/data/leagues_filter.json", "r+", encoding='utf-8'))
+
+    def __extract_clubs_leagues(out_file, year):
+        __extract_league_pages(out_file, year)
+        __extract_clubs_from_leagues(dir_path + file_path, True)
+
+    extract_entity(year_start, year_end, "leagues", leagues, download_league_pages, __extract_clubs_leagues, "clubs")
+
+
+def extract_entity(year_start, year_end, descriptor, entities, downloader, extractor, additional_descriptor):
+    dir_path = os.path.dirname(__file__)
+    create_directory(dir_path + "/tmp")
+    create_directory(dir_path + f"/tmp/{descriptor}")
+    create_directory(dir_path + f"/tmp/{descriptor}/processed")
+
     for year in range(year_start, year_end):
-        print("------------------", str(year), "------------------")
-        dir_path = os.path.dirname(__file__)
-        pages_file = dir_path + "/tmp/transfer_pages.csv"
-        date_start = datetime.strptime(str(year) + "-01-01", "%Y-%m-%d")
-        date_end = datetime.strptime(str(year + 1) + "-01-01", "%Y-%m-%d")
-
-        __find_all_pages(pages_file, date_start, date_end)
-        __download_pages(pages_file)
-
-        transfers_file = dir_path + "/data/transfers" + str(year) + ".json"
-        __scrape_pages(transfers_file)
-
-
-def __extract_transfers_club(year_start, year_end):
-    create_directory(os.path.dirname(__file__) + "/tmp")
-    for year in range(year_start, year_end):
-        print("------------------", str(year), "------------------")
-        dir_path = os.path.dirname(__file__)
+        print(f"\n-------------------------------{year}-------------------------------")
         start_time = time.time()
-        clubs = __find_all_clubs(False)
+        click.echo(f"Downloading all pages for all {len(entities)} {descriptor} for year {year}.")
+        entities_dicts = split_dic(entities, parallel_jobs())
+        Parallel(n_jobs=parallel_jobs())(delayed(downloader)(entities_chunk, year)
+                                         for entities_chunk in entities_dicts)
         end_time = time.time()
-        print(f"Finding all clubs took {end_time - start_time} seconds.")
+        print(f"Downloading all {descriptor} pages took {end_time - start_time} seconds.")
 
         start_time = time.time()
-        click.echo(f"Downloading transfer pages for all {len(clubs)} clubs for year {year}.")
-        create_directory("tmp/clubs")
-        club_dicts = split_dic(clubs, parallel_jobs())
-        Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
-                                                              for clubs_chunk in club_dicts)
-        Parallel(n_jobs=parallel_jobs())(delayed(__download_club_pages)(clubs_chunk, year)
-                                         for clubs_chunk in club_dicts)
+        out_file = dir_path + f"/data/{descriptor}_{additional_descriptor}" + str(year) + ".json"
+        extractor(out_file, year)
         end_time = time.time()
-        print(f"Downloading all clubs pages took {end_time - start_time} seconds.")
-
-        start_time = time.time()
-        create_directory(dir_path + "/tmp/clubs/processed")
-        transfers_file = dir_path + "/data/transfers_club_" + str(year) + ".json"
-        __scrape_club_pages(transfers_file, year)
-        end_time = time.time()
-        print(f"Scraping all transfers from all clubs pages took {end_time - start_time} seconds.")
+        print(f"Extracting data from all {descriptor} pages took {end_time - start_time} seconds.")
 
 
-@click.group()
-def cli():
-    pass
+def __filter_all_clubs(leagues, update: bool = True):
+    local_path: Union[bytes, str] = os.path.dirname(__file__)
+    clubs_path = local_path + "/data/clubs_leagues.json"
+    print(f"Extracting all clubs from {len(leagues)} leagues clubs into {clubs_path}.")
+
+    try:
+        clubs_dict = json.load(open(clubs_path, "r+", encoding='utf-8'))
+        if not update:
+            return clubs_dict
+    except (FileNotFoundError, JSONDecodeError):
+        clubs_dict = defaultdict(list)
+
+    leagues_names = {}
+    for league in leagues.keys():
+        leagues_names[str.split(league, "_")[0]] = league
+
+    with open(clubs_path, "w+", encoding='utf-8') as clubs_file:
+        for (dirpath, dirnames, filenames) in os.walk(local_path + "/data"):
+            for filename in filenames:
+                if "transfers_" in filename:
+                    data = json.load(open(dirpath + "/" + filename, "r", encoding='utf-8'))
+                    for elem in data:
+                        club_name = list(elem.keys())[0]
+                        club_league = elem[club_name]["club_league"]
+                        if "UNK" not in club_league and club_league in leagues_names:
+                            club_league_nat = leagues_names[club_league]
+
+                            if club_name not in clubs_dict \
+                                    and elem[club_name]["club_leagueHref"] in leagues[club_league_nat]:
+                                clubs_dict[club_name] = elem[club_name]["href"]
+
+                    clubs_file.seek(0)
+                    json.dump(clubs_dict, clubs_file, indent=4)
+                    print(f"Wrote {len(leagues)} football leagues with a total of {len(clubs_dict)} clubs into {clubs_path}.")
+    return clubs_dict
 
 
-@click.command()
-@click.option('--file', default="/tmp/transfer_pages.csv", help='Destination file for pages to be written')
-@click.option('--date-start', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()))
-@click.option('--date-end', type = click.DateTime(formats=["%Y-%m-%d"]), default=str(date.today()))
-def find_all_pages(file, date_start, date_end):
-    __find_all_pages(file, date_start, date_end)
+def __collect_all_leagues(leagues, update: bool = True):
+    local_path = os.path.dirname(__file__)
+    leagues_filter_raw = local_path + "/data/leagues_filter_raw.json"
+    print(f"Extracting all leagues with links for {len(leagues)} leagues into {leagues_filter_raw}.")
+    leagues_dict = defaultdict(list)
+
+    with open(leagues_filter_raw, "w+", encoding='utf-8') as leagues_file:
+        for (dirpath, dirnames, filenames) in os.walk(local_path + "/data"):
+            for filename in filenames:
+                if "transfers_" in filename:
+                    data = json.load(open(dirpath + "/" + filename, "r", encoding='utf-8'))
+                    for elem in data:
+                        club_name = list(elem.keys())[0]
+                        club_league = elem[club_name]["club_league"]
+                        if club_league in leagues \
+                                and elem[club_name]["club_leagueHref"] not in leagues_dict[club_league] \
+                                and club_league != "UNK" \
+                                and elem[club_name]["club_leagueHref"] != "UNK":
+                            leagues_dict[club_league].append(elem[club_name]["club_leagueHref"])
+
+                    leagues_file.seek(0)
+                    json.dump(leagues_dict, leagues_file, indent=4)
+                    print(f"Wrote {len(leagues_dict)} football leagues into {leagues_filter_raw}.")
+    return leagues_dict
 
 
-@click.command()
-@click.option('--file', default="/tmp/transfer_pages.csv", help='Source file for pages to be downloaded')
-def download_pages(file):
-    __download_pages(file)
+def __extract_clubs_from_leagues(path, update: bool = True):
+    local_path = os.path.dirname(__file__)
+    try:
+        clubs_dict = json.load(open(path, "r", encoding='utf-8'))
+        if not update:
+            return clubs_dict
+    except (FileNotFoundError, JSONDecodeError):
+        clubs_dict = defaultdict(list)
 
-
-@click.command()
-@click.option('--file', default="/data/transfers.json", help='Destination file for scraped results to be written')
-def scrape_pages(file):
-    __scrape_pages(file)
-
-
-@click.command()
-@click.option('--year-start', type=str, default="2018", help='start year')
-@click.option('--year-end', type=str, default="2019", help='end year')
-def extract_transfers_ind(year_start, year_end):
-    __extract_transfers_ind(int(year_start), int(year_end))
-
-
-@click.command()
-@click.option('--year-start', type=str, default="2018", help='start year')
-@click.option('--year-end', type=str, default="2019", help='end year')
-def extract_transfers_club(year_start, year_end):
-    __extract_transfers_club(int(year_start), int(year_end))
-
-
-cli.add_command(find_all_pages)
-cli.add_command(download_pages)
-cli.add_command(scrape_pages)
-cli.add_command(extract_transfers_ind)
-cli.add_command(extract_transfers_club)
-
-
-if __name__ == '__main__':
-    cli()
+    with open(path, "w+", encoding='utf-8') as clubs_file:
+        for (dirpath, dirnames, filenames) in os.walk(local_path + "/data"):
+            for filename in filenames:
+                if "leagues_clubs" in filename:
+                    data = json.load(open(dirpath + "/" + filename, "r", encoding='utf-8'))
+                    for league in data:
+                        try:
+                            for league_key in league.keys():
+                                clubs = league[league_key]
+                                for club in clubs:
+                                    club_name = club["club_name"]
+                                    club_href = (club["club_href"]).split("saison_id")[0]
+                                    if club_name not in clubs_dict:
+                                        clubs_dict[club_name] = club_href
+                        except AttributeError:
+                            print(f"Skipping league {league} from file {filename} due to AttributeError.")
+                    remove_file(dirpath + "/" + filename)
+            clubs_file.seek(0)
+            json.dump(clubs_dict, clubs_file, indent=4)
+            print(f"Wrote a total of {len(clubs_dict.keys())} clubs into {path}.")
+    return clubs_dict
