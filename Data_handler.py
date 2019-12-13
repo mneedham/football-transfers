@@ -15,7 +15,7 @@ from collections import defaultdict
 
 
 def parallel_jobs() -> int:
-    return int(cpu_count() - 5)
+    return int(cpu_count() - 1)
 
 
 def split_dic(dic, chunk_num):
