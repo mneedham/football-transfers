@@ -9,13 +9,13 @@ from math import ceil
 from multiprocessing import Process, JoinableQueue, cpu_count
 from page_extractor import extract_clubs, extract_league
 from Downloader import download_transfer_pages, download_league_pages, download_club_pages
-from IOHelper import create_directory, move_file, parallel_write, remove_file
+from IOHelper import create_directory, move_file, parallel_write, remove_file, remove_directory
 from json import JSONDecodeError
 from collections import defaultdict
 
 
 def parallel_jobs() -> int:
-    return int(cpu_count() - 3)
+    return int(cpu_count() - 5)
 
 
 def split_dic(dic, chunk_num):
@@ -120,11 +120,12 @@ def extract_leagues_clubs(file_path, year_start, year_end):
 
 def extract_entity(year_start, year_end, descriptor, entities, downloader, extractor, additional_descriptor):
     dir_path = os.path.dirname(__file__)
-    create_directory(dir_path + "/tmp")
-    create_directory(dir_path + f"/tmp/{descriptor}")
-    create_directory(dir_path + f"/tmp/{descriptor}/processed")
 
     for year in range(year_start, year_end):
+        create_directory(dir_path + "/tmp")
+        create_directory(dir_path + f"/tmp/{descriptor}")
+        create_directory(dir_path + f"/tmp/{descriptor}/processed")
+
         print(f"\n-------------------------------{year}-------------------------------")
         start_time = time.time()
         click.echo(f"Downloading all pages for all {len(entities)} {descriptor} for year {year}.")
@@ -139,6 +140,8 @@ def extract_entity(year_start, year_end, descriptor, entities, downloader, extra
         extractor(out_file, year)
         end_time = time.time()
         print(f"Extracting data from all {descriptor} pages took {end_time - start_time} seconds.")
+
+        remove_directory(dir_path + "/tmp")
 
 
 def __filter_all_clubs(leagues, update: bool = True):

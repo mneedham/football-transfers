@@ -1,5 +1,5 @@
 import click
-from handler import extract_transfers_clubs, extract_leagues_clubs
+from Data_handler import extract_transfers_clubs, extract_leagues_clubs
 
 
 @click.group()

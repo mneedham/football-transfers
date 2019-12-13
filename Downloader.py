@@ -16,7 +16,7 @@ def __save_response_hook(path):
 
 def __generate_club_url(year, name, link):
     link_template = "https://www.transfermarkt.co.uk"
-    return link_template + link.replace("startseite", "transfers") + "saison_id/" + str(year), name
+    return link_template + link.replace("startseite", "transfers").replace("spielplan", "transfers") + "saison_id/" + str(year), name
 
 
 def __generate_club_urls(clubs, year):

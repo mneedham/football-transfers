@@ -1,4 +1,5 @@
 from os import path, mkdir, rename, remove
+from shutil import rmtree
 
 
 def create_directory(dir_path: str):
@@ -12,6 +13,10 @@ def move_file(from_path: str, to_path:str):
 
 def remove_file(file_path: str):
     remove(file_path)
+
+
+def remove_directory(path):
+    rmtree(path, ignore_errors=True)
 
 
 def parallel_write(q, file_path):
