@@ -46,15 +46,18 @@ def __extract_transfer_club(row, transfer_direction):
 
 def __extract_club_season(page):
     try:
-        from_row = page.findAll("a", {"class", "anchor"}, {"name", "zugaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
+        arrival_box = page.findAll("a", {"class", "anchor"}, {"name", "zugaenge"})[0].parent.parent
+        from_row = arrival_box.select("div:is(.responsive-table)")[0].select("tbody > tr")
     except IndexError:
         from_row = []
     try:
-        to_row = page.findAll("a", {"class", "anchor"}, {"name", "abgaenge"})[0].parent.parent.findAll("div", {"class", "responsive-table"})[0].select("tbody > tr")
+        departure_box = page.findAll("a", {"class", "anchor"}, {"name", "abgaenge"})[1].parent.parent
+        to_row = departure_box.select("div:is(.responsive-table)")[0].select("tbody > tr")
     except IndexError:
         to_row = []
-    return {"Departures": tuple([__extract_transfer_club(transfer_row, "to") for transfer_row in to_row]),
-           "Arrivals": tuple([__extract_transfer_club(transfer_row, "from") for transfer_row in from_row])}
+
+    return {"Arrivals": tuple([__extract_transfer_club(transfer_row, "from") for transfer_row in from_row]),
+            "Departures": tuple([__extract_transfer_club(transfer_row, "to") for transfer_row in to_row])}
 
 
 def __extract_club_name(page):
