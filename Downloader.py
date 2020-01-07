@@ -3,6 +3,8 @@ This class handles all the downloads of pages from transfermarkt.
 1. Generates urls for clubs, club transfers and leagues
 2. Download the pages and save the response
 3. Asynchronous and parallel implementation of the two previous tasks
+
+Written by Jan Gerling
 """
 
 import grequests

@@ -1,5 +1,7 @@
 """
 Entry point to the football transfer data miner, please see the Readme on how to call the functions.
+
+Written by Jan Gerling based on https://github.com/mneedham/football-transfers/blob/master/handler.py
 """
 
 import click

@@ -10,6 +10,8 @@ The pipeline looks like this:
 
 All operations are done in parallel and asynchronous to optimize the speed.
 Furthermore, time is measured and displayed for the subtasks.
+
+Written by Jan Gerling
 """
 
 import glob

@@ -3,6 +3,8 @@ This class extracts all the data from pages from transfermarkt and parses them t
 1. Extract transfers from a clubs transfer page for a specific season, will all required features, see report for more Details.
 2. Extract club name and link from a league page for a specific season
 3. Error handling and missing data/ feature points handling
+
+Written by Jan Gerling based on https://github.com/mneedham/football-transfers/blob/master/scrape_leagues.py
 """
 
 import logging

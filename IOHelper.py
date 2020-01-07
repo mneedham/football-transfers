@@ -1,5 +1,7 @@
 """
 Various IO operations, e.g. parallel writing to file, removal of directories etc.
+
+Written by Jan Gerling
 """
 
 from os import path, mkdir, rename, remove
