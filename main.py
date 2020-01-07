@@ -1,3 +1,7 @@
+"""
+Entry point to the football transfer data miner, please see the Readme on how to call the functions.
+"""
+
 import click
 from Data_handler import extract_transfers_clubs, extract_leagues_clubs
 

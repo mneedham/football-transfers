@@ -1,3 +1,7 @@
+"""
+Various IO operations, e.g. parallel writing to file, removal of directories etc.
+"""
+
 from os import path, mkdir, rename, remove
 from shutil import rmtree
 
@@ -15,7 +19,7 @@ def remove_file(file_path: str):
     remove(file_path)
 
 
-def remove_directory(path):
+def remove_directory(path: str):
     rmtree(path, ignore_errors=True)
 
 
