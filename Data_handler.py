@@ -21,7 +21,7 @@ def parallel_jobs() -> int:
 def split_dic(dic, chunk_num):
     dicts = [{} for _ in range(chunk_num)]
     dict_size = ceil(len(dic) / chunk_num)
-    for counter, (name, link) in enumerate(dic.items(), 1):
+    for counter, (name, link) in enumerate(dic.items(), 0):
         dicts[int(counter / dict_size)][name] = link
 
     return dicts

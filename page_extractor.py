@@ -23,10 +23,17 @@ def __extract_transfer_club(row, transfer_direction):
         print(f"Error occurred while retrieving player nationality or nationality image for player {player_name}")
         player_nationality = "UNK"
         player_nationality_image = "UNK"
+
     club_name = columns[4].find("td", {"class", "hauptlink"}).find("a").text
     club_href = columns[4].find("td", {"class", "hauptlink"}).find("a")["href"]
-    league = columns[4].find("td", {"class", "hauptlink"}).find("a").text
-    league_href = columns[4].find("td", {"class", "hauptlink"}).find("a")["href"]
+    try:
+        league_element = columns[4].find("img", {"class", "flaggenrahmen"}).parent
+        league = league_element.find("a")["title"].split('(')[0]
+        league_href = league_element.find("a")["href"]
+    except (TypeError, AttributeError):
+        league = 'UNK'
+        league_href = 'UNK'
+
     player_fee = columns[5].select("a")[0].text
     transfer_ref = columns[5].select("a")[0]["href"]
 
